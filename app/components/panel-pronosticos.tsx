@@ -5,9 +5,10 @@ import { Dices } from 'lucide-react'
 interface PanelPronosticosProps {
   data: number[][];
   onChange: (data: number[][]) => void;
+  maxRegular: number;
 }
 
-export default function PanelPronosticos({ data, onChange }: PanelPronosticosProps) {
+export default function PanelPronosticos({ data, onChange, maxRegular }: PanelPronosticosProps) {
   const safeData = data ?? [];
 
   const handleChange = (fila: number, col: number, value: string) => {
@@ -20,7 +21,7 @@ export default function PanelPronosticos({ data, onChange }: PanelPronosticosPro
   };
 
   const getCellStyle = (value: number) => {
-    if (value < 1 || value > 43) return 'border-border bg-background';
+    if (value < 1 || value > maxRegular) return 'border-border bg-background';
     return 'border-primary/30 bg-primary/5 text-primary font-semibold';
   };
 
@@ -32,7 +33,7 @@ export default function PanelPronosticos({ data, onChange }: PanelPronosticosPro
         </div>
         <div>
           <h2 className="text-lg font-display font-bold tracking-tight text-card-foreground">Pronósticos</h2>
-          <p className="text-xs text-muted-foreground">5 filas × 5 números (1-43)</p>
+          <p className="text-xs text-muted-foreground">5 filas × 5 números (1-{maxRegular})</p>
         </div>
       </div>
       <div className="space-y-2">
@@ -44,7 +45,7 @@ export default function PanelPronosticos({ data, onChange }: PanelPronosticosPro
                 key={j}
                 type="number"
                 min={1}
-                max={43}
+                max={maxRegular}
                 value={val || ''}
                 onChange={(e: any) => handleChange(i, j, e?.target?.value ?? '')}
                 placeholder="--"

@@ -20,16 +20,16 @@ export default function PanelResultados({ resultado }: PanelResultadosProps) {
     );
   }
 
-  const { recomendaciones, superbalotas, numerosNoSalieron, numerosInvertidos, superbalotasNoSalieron } = resultado ?? {};
+  const { juego, recomendaciones, superbalotas, numerosNoSalieron, numerosInvertidos, superbalotasNoSalieron } = resultado ?? {};
   const safeRecs = recomendaciones ?? [];
   const safeSb = superbalotas ?? [];
   const safeNoSalieron = numerosNoSalieron ?? [];
   const safeInvertidos = numerosInvertidos ?? [];
   const safeSbNoSalieron = superbalotasNoSalieron ?? [];
+  const esBaloto = juego === 'baloto';
 
   return (
     <div className="space-y-4">
-      {/* Recomendaciones principales */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -41,7 +41,7 @@ export default function PanelResultados({ resultado }: PanelResultadosProps) {
           <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
             <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
           </div>
-          <h2 className="text-lg font-display font-bold tracking-tight text-card-foreground">Recomendaciones</h2>
+          <h2 className="text-lg font-display font-bold tracking-tight text-card-foreground">Recomendaciones por bloques verticales</h2>
         </div>
 
         <div className="space-y-4">
@@ -69,23 +69,27 @@ export default function PanelResultados({ resultado }: PanelResultadosProps) {
                     {num?.toString?.()?.padStart?.(2, '0') ?? '00'}
                   </motion.div>
                 ))}
-                <div className="w-px h-8 bg-border mx-1" />
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.6 + i * 0.15 }}
-                  className="w-11 h-11 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-mono font-bold"
-                  style={{ boxShadow: 'var(--shadow-sm)' }}
-                >
-                  {safeSb?.[i]?.toString?.()?.padStart?.(2, '0') ?? '00'}
-                </motion.div>
+
+                {esBaloto && (
+                  <>
+                    <div className="w-px h-8 bg-border mx-1" />
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.6 + i * 0.15 }}
+                      className="w-11 h-11 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-mono font-bold"
+                      style={{ boxShadow: 'var(--shadow-sm)' }}
+                    >
+                      {safeSb?.[i]?.toString?.()?.padStart?.(2, '0') ?? '00'}
+                    </motion.div>
+                  </>
+                )}
               </div>
             </motion.div>
           ))}
         </div>
       </motion.div>
 
-      {/* Estadísticas */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -100,7 +104,7 @@ export default function PanelResultados({ resultado }: PanelResultadosProps) {
           <h2 className="text-lg font-display font-bold tracking-tight text-card-foreground">Estadísticas del Análisis</h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className={`grid grid-cols-1 ${esBaloto ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-3`}>
           <div className="rounded-lg p-4 bg-muted/50">
             <p className="text-2xl font-mono font-bold text-primary">{safeNoSalieron?.length ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Números regulares sin salir</p>
@@ -109,10 +113,12 @@ export default function PanelResultados({ resultado }: PanelResultadosProps) {
             <p className="text-2xl font-mono font-bold text-amber-600 dark:text-amber-400">{safeInvertidos?.length ?? 0}</p>
             <p className="text-xs text-muted-foreground mt-1">Números invertidos detectados</p>
           </div>
-          <div className="rounded-lg p-4 bg-muted/50">
-            <p className="text-2xl font-mono font-bold text-red-500">{safeSbNoSalieron?.length ?? 0}</p>
-            <p className="text-xs text-muted-foreground mt-1">Superbalotas sin salir</p>
-          </div>
+          {esBaloto && (
+            <div className="rounded-lg p-4 bg-muted/50">
+              <p className="text-2xl font-mono font-bold text-red-500">{safeSbNoSalieron?.length ?? 0}</p>
+              <p className="text-xs text-muted-foreground mt-1">Superbalotas sin salir</p>
+            </div>
+          )}
         </div>
 
         {safeInvertidos.length > 0 && (

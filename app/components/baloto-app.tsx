@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { Zap, RotateCcw, Info } from 'lucide-react'
 import PanelPronosticos from './panel-pronosticos'
 import PanelSorteos from './panel-sorteos'
 import PanelResultados from './panel-resultados'
-import { analizarBaloto, type ResultadoAnalisis } from '@/lib/analisis-probabilistico'
+import { analizarProbabilistico, type ResultadoAnalisis, type TipoJuego } from '@/lib/analisis-probabilistico'
 import { toast } from 'sonner'
 
 const INITIAL_PRONOSTICOS = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => 0));
@@ -15,63 +15,73 @@ const INITIAL_SORTEOS = Array.from({ length: 5 }, () => ({
   superbalota: 0,
 }));
 
+const JUEGO_CONFIG: Record<TipoJuego, { nombre: string; maxRegular: number; usaSuperbalota: boolean }> = {
+  miloto: { nombre: 'MiLoto', maxRegular: 39, usaSuperbalota: false },
+  baloto: { nombre: 'Baloto', maxRegular: 43, usaSuperbalota: true },
+};
+
 export default function BalotoApp() {
+  const [juego, setJuego] = useState<TipoJuego>('baloto');
   const [pronosticos, setPronosticos] = useState<number[][]>(INITIAL_PRONOSTICOS);
   const [sorteos, setSorteos] = useState<{ regulares: number[]; superbalota: number }[]>(INITIAL_SORTEOS);
   const [resultado, setResultado] = useState<ResultadoAnalisis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  const config = useMemo(() => JUEGO_CONFIG[juego], [juego]);
+
   const validarDatos = useCallback((): boolean => {
-    // Validar que al menos un sorteo tenga datos
     const sorteosConDatos = (sorteos ?? []).filter((s: any) => {
       const regs = s?.regulares ?? [];
-      return regs.some((n: number) => n >= 1 && n <= 43) || (s?.superbalota >= 1 && s?.superbalota <= 16);
+      if (regs.some((n: number) => n >= 1 && n <= config.maxRegular)) return true;
+      if (config.usaSuperbalota && s?.superbalota >= 1 && s?.superbalota <= 16) return true;
+      return false;
     });
+
     if (sorteosConDatos.length === 0) {
       toast.error('Ingresa al menos un sorteo con datos válidos');
       return false;
     }
 
-    // Validar rangos
     for (let i = 0; i < (sorteos?.length ?? 0); i++) {
       const s = sorteos?.[i];
       const regs = s?.regulares ?? [];
       for (let j = 0; j < regs.length; j++) {
         const n = regs[j] ?? 0;
-        if (n !== 0 && (n < 1 || n > 43)) {
-          toast.error(`Sorteo ${i + 1}, número ${j + 1}: debe estar entre 1 y 43`);
+        if (n !== 0 && (n < 1 || n > config.maxRegular)) {
+          toast.error(`Sorteo ${i + 1}, número ${j + 1}: debe estar entre 1 y ${config.maxRegular}`);
           return false;
         }
       }
-      const sb = s?.superbalota ?? 0;
-      if (sb !== 0 && (sb < 1 || sb > 16)) {
-        toast.error(`Sorteo ${i + 1}: la Superbalota debe estar entre 1 y 16`);
-        return false;
+      if (config.usaSuperbalota) {
+        const sb = s?.superbalota ?? 0;
+        if (sb !== 0 && (sb < 1 || sb > 16)) {
+          toast.error(`Sorteo ${i + 1}: la Superbalota debe estar entre 1 y 16`);
+          return false;
+        }
       }
     }
 
-    // Validar pronósticos
     for (let i = 0; i < (pronosticos?.length ?? 0); i++) {
       const fila = pronosticos?.[i] ?? [];
       for (let j = 0; j < fila.length; j++) {
         const n = fila[j] ?? 0;
-        if (n !== 0 && (n < 1 || n > 43)) {
-          toast.error(`Pronóstico fila ${i + 1}, columna ${j + 1}: debe estar entre 1 y 43`);
+        if (n !== 0 && (n < 1 || n > config.maxRegular)) {
+          toast.error(`Pronóstico fila ${i + 1}, columna ${j + 1}: debe estar entre 1 y ${config.maxRegular}`);
           return false;
         }
       }
     }
 
     return true;
-  }, [sorteos, pronosticos]);
+  }, [sorteos, pronosticos, config]);
 
   const handleAnalizar = useCallback(() => {
     if (!validarDatos()) return;
+
     setIsAnalyzing(true);
-    // Simular una pequeña pausa para efecto visual
     setTimeout(() => {
       try {
-        const res = analizarBaloto(pronosticos ?? [], sorteos ?? []);
+        const res = analizarProbabilistico(pronosticos ?? [], sorteos ?? [], juego);
         setResultado(res);
         toast.success('Análisis completado');
       } catch (err: any) {
@@ -80,8 +90,8 @@ export default function BalotoApp() {
       } finally {
         setIsAnalyzing(false);
       }
-    }, 600);
-  }, [pronosticos, sorteos, validarDatos]);
+    }, 450);
+  }, [pronosticos, sorteos, juego, validarDatos]);
 
   const handleLimpiar = useCallback(() => {
     setPronosticos(Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => 0)));
@@ -93,16 +103,23 @@ export default function BalotoApp() {
     toast.info('Datos limpiados');
   }, []);
 
+  const handleCambiarJuego = useCallback((nuevoJuego: TipoJuego) => {
+    setJuego(nuevoJuego);
+    setResultado(null);
+    toast.info(`Modo ${JUEGO_CONFIG[nuevoJuego].nombre} activado`);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border">
-        <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <Zap className="w-4 h-4 text-primary-foreground" />
             </div>
-            <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight text-foreground">Baloto <span className="text-primary">Analyzer</span></h1>
+            <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight text-foreground">
+              {config.nombre} <span className="text-primary">Analyzer</span>
+            </h1>
           </div>
           <button
             onClick={handleLimpiar}
@@ -115,7 +132,6 @@ export default function BalotoApp() {
       </header>
 
       <main className="max-w-[1200px] mx-auto px-4 py-6 sm:py-8 space-y-6">
-        {/* Descripción */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -123,21 +139,57 @@ export default function BalotoApp() {
         >
           <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
           <p className="text-sm text-foreground/80">
-            Ingresa tus <strong>pronósticos</strong> y los <strong>últimos 5 sorteos</strong> de Baloto para obtener recomendaciones basadas en análisis probabilístico de números que no han salido.
+            Análisis por <strong>5 bloques verticales</strong> comparando pronósticos vs últimos sorteos.
+            Modo actual: <strong>{config.nombre}</strong> ({config.maxRegular} números
+            {config.usaSuperbalota ? ' + Superbalota' : ''}).
           </p>
         </motion.div>
 
-        {/* Paneles de entrada */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl p-4"
+          style={{ boxShadow: 'var(--shadow-sm)', background: 'hsl(var(--card))' }}
+        >
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Tipo de juego</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(JUEGO_CONFIG) as TipoJuego[]).map((key) => {
+              const activo = juego === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleCambiarJuego(key)}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    activo
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {JUEGO_CONFIG[key].nombre}
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-            <PanelPronosticos data={pronosticos} onChange={setPronosticos} />
+            <PanelPronosticos
+              data={pronosticos}
+              onChange={setPronosticos}
+              maxRegular={config.maxRegular}
+            />
           </motion.div>
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <PanelSorteos data={sorteos} onChange={setSorteos} />
+            <PanelSorteos
+              data={sorteos}
+              onChange={setSorteos}
+              maxRegular={config.maxRegular}
+              showSuperbalota={config.usaSuperbalota}
+            />
           </motion.div>
         </div>
 
-        {/* Botón Analizar */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -164,14 +216,14 @@ export default function BalotoApp() {
           </button>
         </motion.div>
 
-        {/* Resultados */}
         <PanelResultados resultado={resultado} />
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border mt-12">
         <div className="max-w-[1200px] mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-muted-foreground">Baloto Analyzer — Herramienta de análisis probabilístico local. No garantiza resultados.</p>
+          <p className="text-xs text-muted-foreground">
+            {config.nombre} Analyzer — Herramienta de análisis probabilístico local. No garantiza resultados.
+          </p>
         </div>
       </footer>
     </div>
